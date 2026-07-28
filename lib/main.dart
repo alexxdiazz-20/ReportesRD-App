@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
+import 'screens/home_screen.dart';
+import 'screens/nuevo_reporte_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +16,15 @@ class MyApp extends StatelessWidget {
       title: 'ReportesRD',
       theme: AppTheme.temaClaro,
       debugShowCheckedModeBanner: false,
-      home: const Placeholder(), // esto lo cambiamos por HomeScreen() más adelante
+      initialRoute: '/',
+      // Rutas nombradas: así cada pantalla se navega por su nombre en vez
+      // de tener que importar el widget de destino en cada lugar donde se
+      // navega. También facilita que el compañero agregue sus propias
+      // rutas (ej. '/historial') sin tocar este archivo más de lo necesario.
+      routes: {
+        '/': (context) => const HomeScreen(),
+        '/nuevo-reporte': (context) => const NuevoReporteScreen(),
+      },
     );
   }
 }

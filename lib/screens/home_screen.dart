@@ -119,23 +119,46 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.report, color: Colors.white, size: 26),
-              SizedBox(width: 8),
-              Text(
-                'ReportesRD',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              const Row(
+                children: [
+                  Icon(Icons.report, color: Colors.white, size: 26),
+                  SizedBox(width: 8),
+                  Text(
+                    'ReportesRD',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              // Acceso al historial de reportes, ubicado en la esquina
+              // superior derecha por ser una acción secundaria (la
+              // principal es crear un reporte, abajo en la pantalla).
+              // Se usa TextButton.icon (no solo un ícono) para que el
+              // usuario entienda de inmediato qué hace, sin adivinar.
+              TextButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/historial'),
+                icon: const Icon(Icons.history, color: Colors.white, size: 20),
+                label: const Text(
+                  'Historial',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.15),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 6),
-          Text(
+          const SizedBox(height: 6),
+          const Text(
             'Reporta accidentes de tránsito y problemas viales en tu zona. '
             'Tu reporte ayuda a mantener las vías más seguras para todos.',
             style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),

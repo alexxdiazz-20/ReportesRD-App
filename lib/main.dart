@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/nuevo_reporte_screen.dart';
+import 'screens/historial_screen.dart';
+import 'screens/ver_reporte_mapa_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,6 +26,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const HomeScreen(),
         '/nuevo-reporte': (context) => const NuevoReporteScreen(),
+        '/historial': (context) => const HistorialScreen(),
+        '/ver-reporte-mapa': (context) => const VerReporteMapaScreen(),
       },
     );
   }

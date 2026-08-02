@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/reporte_model.dart';
+import '../services/dispositivo_service.dart'; // <-- IMPORT NUEVO
 import '../theme/app_theme.dart';
 
 /// Pantalla de creación de un reporte (Tarea 3).
@@ -55,6 +56,10 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
   // didChangeDependencies podría re-pisar la ubicación que el usuario ya
   // ajustó en el mapa.
   bool _argumentosLeidos = false;
+
+  // Mientras se genera/lee el ID del dispositivo y se envía el reporte,
+  // deshabilitamos el botón para evitar doble envío por doble tap.
+  bool _enviando = false;
 
   @override
   void didChangeDependencies() {
@@ -130,7 +135,11 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
   /// Aquí NO se guarda en Supabase todavía: esa parte (crear la tabla y la
   /// conexión) es de otro compañero. Se deja el reporte armado y el punto
   /// exacto marcado con un TODO para que enchufarlo sea directo.
-  void _enviarReporte() {
+  ///
+  /// CAMBIO: ahora es async porque hay que leer/generar el ID del
+  /// dispositivo (DispositivoService) antes de poder armar el ReporteModel,
+  /// ya que 'creadoPor' es un campo requerido del modelo.
+  Future<void> _enviarReporte() async {
     // Validaciones mínimas: sin tipo o sin descripción, el reporte no sirve.
     if (_tipoSeleccionado == null) {
       _mostrarAviso('Selecciona el tipo de incidente.');
@@ -141,6 +150,16 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
       return;
     }
 
+    setState(() => _enviando = true);
+
+    // ID único de este dispositivo (se genera una sola vez y se reutiliza
+    // siempre). Sirve para que "Mis Reportes" en el Historial pueda filtrar
+    // y mostrar solo lo que este dispositivo ha reportado, sin login.
+    final idDispositivo = await DispositivoService.obtenerIdDispositivo();
+
+    // Guard: la pantalla pudo haberse cerrado mientras esperábamos el ID.
+    if (!mounted) return;
+
     final reporte = ReporteModel(
       tipo: _tipoSeleccionado!,
       descripcion: _descripcionController.text.trim(),
@@ -148,12 +167,15 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
       longitud: _ubicacionSeleccionada!.longitude,
       rutasFotos: _rutasFotos,
       urgencia: _urgencia,
+      creadoPor: idDispositivo, // <-- CAMPO NUEVO
     );
 
     // TODO(Supabase - Tarea 5/6): cuando la tabla 'reportes' exista y el
     // cliente de Supabase esté inicializado, guardar aquí. El modelo ya
     // trae toMap() listo:
     //   await Supabase.instance.client.from('reportes').insert(reporte.toMap());
+
+    setState(() => _enviando = false);
 
     // Mientras tanto, confirmamos visualmente que el reporte se armó bien,
     // mostrando el ID único que se generó solo (sin necesidad de login).
@@ -515,14 +537,22 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
   }
 
   /// Botón principal de la pantalla: enviar el reporte. Ocupa todo el ancho
-  /// para que sea la acción más clara y fácil de tocar.
+  /// para que sea la acción más clara y fácil de tocar. Se deshabilita
+  /// mientras se está generando el ID del dispositivo y armando el reporte,
+  /// para evitar que un doble tap cree el reporte dos veces.
   Widget _buildBotonEnviar() {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: _enviarReporte,
-        icon: const Icon(Icons.send),
-        label: const Text('Enviar Reporte'),
+        onPressed: _enviando ? null : _enviarReporte,
+        icon: _enviando
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.send),
+        label: Text(_enviando ? 'Enviando...' : 'Enviar Reporte'),
       ),
     );
   }

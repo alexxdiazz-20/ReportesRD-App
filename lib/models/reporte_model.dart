@@ -12,13 +12,15 @@ class ReporteModel {
   final String descripcion;
   final double latitud;
   final double longitud;
-
-  // Lista de rutas de fotos: puede venir vacía (sin fotos),
-  // con una, o con varias.
   final List<String> rutasFotos;
-
   final NivelUrgencia urgencia;
   final DateTime fechaCreacion;
+
+  // ID del dispositivo que creó este reporte (ver DispositivoService).
+  // Se usa para que cada usuario pueda ver "sus" reportes en el
+  // Historial, sin necesidad de login. No identifica a una persona,
+  // solo a un dispositivo/instalación de la app.
+  final String creadoPor;
 
   ReporteModel({
     String? id,
@@ -29,16 +31,22 @@ class ReporteModel {
     List<String>? rutasFotos,
     required this.urgencia,
     DateTime? fechaCreacion,
+    required this.creadoPor,
   })  : id = id ?? const Uuid().v4(), // genera el ID único automáticamente, sin login
-        rutasFotos = rutasFotos ?? const [], // si no se pasa nada, queda como lista vacía
+        rutasFotos = rutasFotos ?? const [],
         fechaCreacion = fechaCreacion ?? DateTime.now();
 
   /// Esto es lo que el compañero de base de datos va a mandar a Supabase.
   /// Ejemplo de uso futuro:
   /// await Supabase.instance.client.from('reportes').insert(reporte.toMap());
   ///
-  /// Nota para el compañero de BD: 'rutas_fotos' es un arreglo de texto.
-  /// En Supabase/Postgres el tipo de columna correspondiente es text[].
+  /// Nota para el compañero de BD:
+  /// - 'rutas_fotos' es un arreglo de texto (text[] en Postgres)
+  /// - 'creado_por' es el ID del dispositivo. La consulta del Historial
+  ///   personal debe filtrar por esta columna:
+  ///     .eq('creado_por', idDeEsteDispositivo)
+  ///   mientras que el mapa público del Home debe traer TODOS los
+  ///   reportes sin filtrar por esta columna.
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -49,6 +57,7 @@ class ReporteModel {
       'rutas_fotos': rutasFotos,
       'urgencia': urgencia.name,
       'fecha_creacion': fechaCreacion.toIso8601String(),
+      'creado_por': creadoPor,
     };
   }
 }

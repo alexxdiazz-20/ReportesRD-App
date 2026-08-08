@@ -85,12 +85,17 @@ O desde VS Code, con el emulador seleccionado como dispositivo destino, dale a *
 - [x] Mapa interactivo mostrando la ubicación actual del usuario
 - [x] Botón "Crear Nuevo Reporte" que navega a la pantalla de creación, pasando la ubicación ya capturada por GPS
 - [x] Diseño visual: mapa en recuadro, sección inferior tipo tarjeta
-- [x] Modelo de datos del reporte (`lib/models/reporte_model.dart`) — incluye generación automática de ID único y soporte para múltiples fotos, listo para conectar a Supabase
+- [x] Modelo de datos del reporte (`lib/models/reporte_model.dart`) — incluye generación automática de ID único y soporte para múltiples fotos
+- [x] Mapa del Home muestra todos los reportes guardados con iconos (emoji + color de urgencia) y navega a su detalle
+
+### Backend y persistencia (Supabase)
+- [x] Tabla `reportes` creada con políticas RLS (sin login: rol anon puede insertar y leer)
+- [x] Bucket privado `reportes_fotos` + URLs firmadas para ver las fotos
+- [x] Conexión Supabase configurada (`lib/config/supabase_config.dart` + `supabase_flutter`)
+- [x] Guardado real de reportes (fotos + información) desde la pantalla de creación
+- [x] Historial conectado a datos reales con sus filtros (48h / "Ver reportes anteriores")
 
 ### Pendiente
-- [ ] Pantalla de creación de reporte (formulario completo) — **compañero encargado: [nombre]**
-- [ ] Conexión a Supabase (guardar y leer reportes) — **compañero encargado: [nombre]**
-- [ ] Pantalla de Historial de Reportes (Alex)
 - [ ] Políticas RLS para las tablas de Supabase — **compañero encargado: [nombre]**
 
 ---
@@ -99,14 +104,24 @@ O desde VS Code, con el emulador seleccionado como dispositivo destino, dale a *
 
 ```
 lib/
-├── main.dart                        # Punto de entrada, rutas de la app
+├── main.dart                        # Punto de entrada, rutas e init de Supabase
+├── config/
+│   └── supabase_config.dart         # URL y publishable key de Supabase
 ├── theme/
 │   └── app_theme.dart               # Paleta de colores y estilos globales
 ├── models/
 │   └── reporte_model.dart           # Estructura de datos de un reporte
+├── services/
+│   ├── reporte_service.dart         # Guardar/consultar reportes, fotos, URLs firmadas
+│   └── dispositivo_service.dart     # ID anónimo por dispositivo (sin login)
+├── utils/
+│   └── icono_marker.dart            # Iconos del mapa (emoji + urgencia)
 └── screens/
-    ├── home_screen.dart             # Pantalla principal (mapa + bienvenida)
-    └── nuevo_reporte_screen.dart    # Placeholder — pendiente por el compañero
+    ├── home_screen.dart             # Pantalla principal (mapa con reportes + bienvenida)
+    ├── nuevo_reporte_screen.dart    # Formulario de creación (guarda en Supabase)
+    ├── historial_screen.dart        # Mis Reportes / Reportes Recientes (datos reales)
+    ├── detalle_reporte_screen.dart  # Detalle del reporte (fotos, urgencia, ubicación)
+    └── ver_reporte_mapa_screen.dart # Mapa con el punto exacto del reporte
 ```
 
 ---

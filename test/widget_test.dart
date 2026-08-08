@@ -1,30 +1,42 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:reportes_rd/main.dart';
+import 'package:reportes_rd/models/reporte_model.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('toMap y fromMap hacen un round-trip sin perder datos', () {
+    final reporte = ReporteModel(
+      id: 'abc-123',
+      tipo: TipoIncidente.accidente,
+      descripcion: 'Choque en la intersección',
+      latitud: 18.4861,
+      longitud: -69.9312,
+      rutasFotos: const ['foto1.jpg', 'foto2.jpg'],
+      urgencia: NivelUrgencia.alta,
+      fechaCreacion: DateTime(2026, 1, 15, 10, 30),
+      creadoPor: 'dispositivo_1',
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    final restaurado = ReporteModel.fromMap(reporte.toMap());
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(restaurado.id, reporte.id);
+    expect(restaurado.tipo, TipoIncidente.accidente);
+    expect(restaurado.descripcion, reporte.descripcion);
+    expect(restaurado.latitud, reporte.latitud);
+    expect(restaurado.longitud, reporte.longitud);
+    expect(restaurado.rutasFotos, reporte.rutasFotos);
+    expect(restaurado.urgencia, NivelUrgencia.alta);
+    expect(restaurado.fechaCreacion, reporte.fechaCreacion);
+    expect(restaurado.creadoPor, reporte.creadoPor);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('fromTexto tolera valores desconocidos con un valor por defecto', () {
+    expect(TipoIncidente.fromTexto('no_existe'), TipoIncidente.otro);
+    expect(NivelUrgencia.fromTexto(null), NivelUrgencia.media);
+  });
+
+  test('cada tipo de incidente tiene etiqueta y emoji', () {
+    expect(TipoIncidente.accidente.emoji, '🚗');
+    expect(TipoIncidente.problemaVial.emoji, '⚠️');
+    expect(TipoIncidente.otro.emoji, '📍');
   });
 }

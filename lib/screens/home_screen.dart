@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import '../models/reporte_model.dart';
+import '../services/reporte_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/icono_marker.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +18,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Position? _posicionActual;
   bool _cargandoUbicacion = true;
 
+  // Reportes de la comunidad y sus markers en el mapa.
+  Set<Marker> _marcadores = {};
+  bool _cargandoReportes = true;
+
   // Santo Domingo como posición por defecto, mientras carga el GPS real
   // o si el usuario nunca da permiso de ubicación.
   static const CameraPosition _posicionInicial = CameraPosition(
@@ -26,6 +33,37 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _obtenerUbicacion();
+    _cargarReportes();
+  }
+
+  /// Trae todos los reportes guardados y construye un marker por cada uno,
+  /// con el icono (emoji + color de urgencia) según el tipo de reporte.
+  Future<void> _cargarReportes() async {
+    try {
+      final reportes = await ReporteService.obtenerReportes();
+      // En la web la fuente de emoji se descarga bajo demanda al pintar el
+      // primer emoji (ver _PrecargaEmojis en main.dart). Se espera un momento
+      // para que la fuente quede lista y los PNG de los markers se dibujen
+      // con el emoji real y no con el cuadro con X (tofu).
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final marcadores = <Marker>{
+        for (final reporte in reportes)
+          Marker(
+            markerId: MarkerId(reporte.id),
+            position: LatLng(reporte.latitud, reporte.longitud),
+            icon: await IconoMarcador.paraReporte(reporte),
+            onTap: () => _verDetalleReporte(reporte),
+          ),
+      };
+      if (!mounted) return;
+      setState(() {
+        _marcadores = marcadores;
+        _cargandoReportes = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _cargandoReportes = false);
+    }
   }
 
   /// Pide permiso de ubicación y obtiene la posición GPS actual del usuario.
@@ -78,6 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
         'longitud': lng,
       },
     );
+  }
+
+  /// Abre la pantalla de detalle con la información completa del reporte.
+  void _verDetalleReporte(ReporteModel reporte) {
+    Navigator.pushNamed(context, '/detalle-reporte', arguments: reporte);
   }
 
   @override
@@ -186,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          child: _cargandoUbicacion
+          child: _cargandoUbicacion || _cargandoReportes
               ? const Center(child: CircularProgressIndicator())
               : GoogleMap(
                   initialCameraPosition: _posicionActual != null
@@ -206,6 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // no pierda la orientación norte-arriba por accidente.
                   rotateGesturesEnabled: false,
                   tiltGesturesEnabled: false,
+                  markers: _marcadores,
                 ),
         ),
       ),

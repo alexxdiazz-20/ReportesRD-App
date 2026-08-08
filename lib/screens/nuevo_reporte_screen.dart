@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/reporte_model.dart';
 import '../services/dispositivo_service.dart'; // <-- IMPORT NUEVO
+import '../services/reporte_service.dart';
 import '../theme/app_theme.dart';
 
 /// Pantalla de creación de un reporte (Tarea 3).
@@ -46,6 +47,11 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
   // Rutas de las fotos que el usuario ya agregó. El modelo soporta varias,
   // así que guardamos una lista y no una sola foto.
   final List<String> _rutasFotos = [];
+
+  // Bytes de cada foto, capturados EN EL MOMENTO de elegirla. En web la URL
+  // blob: que devuelve image_picker puede quedar revocada después de un rato,
+  // así que no se puede re-leer al enviar; por eso se retiene la data aquí.
+  final List<Uint8List> _fotosBytes = [];
 
   // Ubicación del reporte. Arranca en la que envía el Home y el usuario la
   // puede ajustar moviendo el marcador en el mapa.
@@ -119,26 +125,32 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
     );
     if (imagen == null) return;
 
+    // Se leen los bytes inmediatamente, cuando el blob sigue disponible.
+    final Uint8List bytes = await imagen.readAsBytes();
+
     // Guard obligatorio: pudo haberse cerrado la pantalla mientras el usuario
     // estaba en la cámara/galería. Sin este chequeo, setState reventaría.
     if (!mounted) return;
-    setState(() => _rutasFotos.add(imagen.path));
+    setState(() {
+      _rutasFotos.add(imagen.path);
+      _fotosBytes.add(bytes);
+    });
   }
 
   /// Quita una foto de la lista (por si el usuario se arrepiente o se equivocó).
   void _quitarFoto(int indice) {
-    setState(() => _rutasFotos.removeAt(indice));
+    setState(() {
+      _rutasFotos.removeAt(indice);
+      _fotosBytes.removeAt(indice);
+    });
   }
 
-  /// Valida el formulario y, si todo está bien, arma el [ReporteModel].
+  /// Valida el formulario y, si todo está bien, arma el [ReporteModel],
+  /// sube las fotos y guarda el reporte en Supabase.
   ///
-  /// Aquí NO se guarda en Supabase todavía: esa parte (crear la tabla y la
-  /// conexión) es de otro compañero. Se deja el reporte armado y el punto
-  /// exacto marcado con un TODO para que enchufarlo sea directo.
-  ///
-  /// CAMBIO: ahora es async porque hay que leer/generar el ID del
-  /// dispositivo (DispositivoService) antes de poder armar el ReporteModel,
-  /// ya que 'creadoPor' es un campo requerido del modelo.
+  /// Ahora es async porque hay que leer/generar el ID del dispositivo
+  /// (DispositivoService) antes de poder armar el ReporteModel, ya que
+  /// 'creadoPor' es un campo requerido del modelo.
   Future<void> _enviarReporte() async {
     // Validaciones mínimas: sin tipo o sin descripción, el reporte no sirve.
     if (_tipoSeleccionado == null) {
@@ -170,15 +182,23 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
       creadoPor: idDispositivo, // <-- CAMPO NUEVO
     );
 
-    // TODO(Supabase - Tarea 5/6): cuando la tabla 'reportes' exista y el
-    // cliente de Supabase esté inicializado, guardar aquí. El modelo ya
-    // trae toMap() listo:
-    //   await Supabase.instance.client.from('reportes').insert(reporte.toMap());
+    // Guarda en Supabase: primero sube las fotos al bucket privado y luego
+    // inserta la fila. Si algo falla, se avisa y el usuario puede reintentar.
+    try {
+      await ReporteService.guardarReporte(reporte, _fotosBytes);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _enviando = false);
+      debugPrint('Error guardando reporte: $e');
+      _mostrarAviso('No se pudo guardar el reporte: $e');
+      return;
+    }
 
+    if (!mounted) return;
     setState(() => _enviando = false);
 
-    // Mientras tanto, confirmamos visualmente que el reporte se armó bien,
-    // mostrando el ID único que se generó solo (sin necesidad de login).
+    // Confirmamos visualmente que el reporte se guardó, mostrando el ID
+    // único que se generó solo (sin necesidad de login).
     _mostrarConfirmacion(reporte);
   }
 
@@ -241,7 +261,9 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
             const SizedBox(height: 20),
 
             _buildTituloSeccion('Foto del problema'),
-            _buildTextoAyuda('Opcional, pero una foto ayuda a entender mejor lo que pasó.'),
+            _buildTextoAyuda(
+                'Opcional, pero una foto ayuda a entender mejor lo que pasó. '
+                'Evita capturar caras o placas de vehículos.'),
             _buildSeccionFotos(),
             const SizedBox(height: 20),
 
@@ -281,7 +303,7 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
 
   /// Botones de tipo de incidente (Tarea 3 - item 1).
   ///
-  /// Se muestran los tres tipos del modelo como tarjetas tocables en fila.
+  /// Se muestran los tipos del modelo como tarjetas tocables en fila.
   /// La seleccionada se resalta con el color primario; así el usuario ve de
   /// un vistazo qué escogió, sin tener que abrir un menú desplegable.
   Widget _buildSelectorTipo() {
@@ -290,6 +312,8 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
         _buildTarjetaTipo(TipoIncidente.accidente, Icons.car_crash, 'Accidente'),
         const SizedBox(width: 10),
         _buildTarjetaTipo(TipoIncidente.problemaVial, Icons.warning_amber_rounded, 'Problema Vial'),
+        const SizedBox(width: 10),
+        _buildTarjetaTipo(TipoIncidente.inundacion, Icons.waves, 'Inundación'),
         const SizedBox(width: 10),
         _buildTarjetaTipo(TipoIncidente.otro, Icons.more_horiz, 'Otro'),
       ],
@@ -446,17 +470,21 @@ class _NuevoReporteScreenState extends State<NuevoReporteScreen> {
 
   /// Miniatura de una foto con su botón para quitarla. Se usa Stack para
   /// montar la "x" en la esquina superior derecha de la imagen.
+  ///
+  /// En web no existe el filesystem local: image_picker devuelve una URL
+  /// tipo blob:, que se muestra con Image.network. En Android/iOS se usa
+  /// Image.file con la ruta real del teléfono.
   Widget _buildMiniaturaFoto(int indice) {
+    final ruta = _rutasFotos[indice];
+    final Widget imagen = kIsWeb
+        ? Image.network(ruta, width: 90, height: 90, fit: BoxFit.cover)
+        : Image.file(File(ruta), width: 90, height: 90, fit: BoxFit.cover);
+
     return Stack(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.file(
-            File(_rutasFotos[indice]),
-            width: 90,
-            height: 90,
-            fit: BoxFit.cover,
-          ),
+          child: imagen,
         ),
         Positioned(
           top: 2,
